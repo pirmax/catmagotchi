@@ -23,30 +23,16 @@ ANIMATIONS = {
 
 def load_frame(animation_name, frame_index):
     path = f"animations/{animation_name}/frame_{frame_index}.png"
-    img = Image.open(path).convert('L')  # niveaux de gris
-    bw = img.point(lambda x: 0 if x < 128 else 255, '1')  # chat noir, fond blanc
+    img = Image.open(path).convert('L')  # grayscale
 
-    centered = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 0)  # fond noir
+    # Convert pixels sombres (chat) en noir, clairs (fond) en blanc
+    bw = img.point(lambda x: 255 if x > 128 else 0, '1')  # fond blanc, chat noir
+
+    centered = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)  # fond blanc
     img_w, img_h = bw.size
     pos_x = (SCREEN_WIDTH - img_w) // 2
     pos_y = (SCREEN_HEIGHT - img_h) // 2
     centered.paste(bw, (pos_x, pos_y))
-
-    # Ajouter une ligne blanche sous le chat
-    pixels = centered.load()
-    lowest_y = 0
-    for y in range(SCREEN_HEIGHT - 1, -1, -1):
-        for x in range(SCREEN_WIDTH):
-            if pixels[x, y] == 255:
-                lowest_y = y
-                break
-        if lowest_y:
-            break
-
-    # Ligne blanche juste en dessous du chat
-    draw = ImageDraw.Draw(centered)
-    ground_y = min(lowest_y + 1, SCREEN_HEIGHT - 4)
-    # draw.rectangle([(0, ground_y), (SCREEN_WIDTH, ground_y + LINE_HEIGHT)], fill=255)
 
     return centered
 
