@@ -1,9 +1,8 @@
-import os
 import sys
 import time
 import argparse
 import random
-from PIL import Image, ImageDraw, ImageTk
+from PIL import Image, ImageTk
 import tkinter as tk
 
 SCREEN_WIDTH = 250
