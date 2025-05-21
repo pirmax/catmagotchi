@@ -15,16 +15,18 @@ The cat idles, walks, sleeps, and reacts over time with smooth transitions and a
 
 Directory structure:
 
+```
 catmagotchi/
-├── animations/
-│   ├── idle/
-│   ├── sleep/
-│   └── …
-├── lib/
-│   └── waveshare_epd/
-├── main.py
-├── requirements.txt
-└── README.md
+   ├── animations/
+   │   ├── idle/
+   │   ├── sleep/
+   │   └── …
+   ├── lib/
+   │   └── waveshare_epd/
+   ├── main.py
+   ├── requirements.txt
+   └── README.md
+```
 
 ---
 
