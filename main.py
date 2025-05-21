@@ -13,33 +13,39 @@ LINE_HEIGHT = 1
 
 # Configuration des animations
 ANIMATIONS = {
-    "idle": {"frames": 5, "duration": 20},
+    "idle": {"frames": 5, "duration": 10},
     "idle_to_sleep": {"frames": 8, "duration": None},
-    "sleep": {"frames": 3, "duration": 40},
+    "sleep": {"frames": 3, "duration": 15},
     "sleep_to_idle": {"frames": 8, "duration": None},
-    "walking_positive": {"frames": 8, "duration": 10},
-    "walking_negative": {"frames": 8, "duration": 10},
+    "walking_positive": {"frames": 8, "duration": 5},
+    "walking_negative": {"frames": 8, "duration": 5},
 }
 
+# ----- LOAD FRAME -----
 def load_frame(animation_name, frame_index):
     path = f"animations/{animation_name}/frame_{frame_index}.png"
-    img = Image.open(path).convert('RGBA')  # garde le canal alpha temporairement
 
-    # Dessine sur un fond blanc (ignore l'alpha)
-    white_bg = Image.new('RGBA', img.size, (255, 255, 255, 255))
-    white_bg.paste(img, (0, 0))
+    # Ouvre en RGB (on ignore alpha) et convertit en niveaux de gris
+    img = Image.open(path).convert('RGB')
+    grayscale = img.convert('L')
 
-    # Convertit en niveaux de gris (sans transparence)
-    grayscale = white_bg.convert('L')
+    def threshold(x):
+        # Fond noir (valeur 0-20) → blanc
+        # Yeux (bleus, valeurs ~200+) → blanc
+        # Corps (valeurs moyennes, 30–180) → noir
+        if x < 20:         # fond noir
+            return 255
+        elif x > 190:      # yeux / détails clairs
+            return 255
+        else:
+            return 0       # corps / contours
 
-    # Binarise : chat noir, fond blanc
-    bw = grayscale.point(lambda x: 0 if x < 128 else 255, '1')
+    bw = grayscale.point(threshold, '1')
 
-    # Centre l’image sur fond blanc
+    # Centre sur fond blanc
     centered = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)
-    img_w, img_h = bw.size
-    pos_x = (SCREEN_WIDTH - img_w) // 2
-    pos_y = (SCREEN_HEIGHT - img_h) // 2
+    pos_x = (SCREEN_WIDTH - bw.width) // 2
+    pos_y = (SCREEN_HEIGHT - bw.height) // 2
     centered.paste(bw, (pos_x, pos_y))
 
     return centered
