@@ -23,12 +23,12 @@ ANIMATIONS = {
 
 def load_frame(animation_name, frame_index):
     path = f"animations/{animation_name}/frame_{frame_index}.png"
-    img = Image.open(path).convert('L')
+    img = Image.open(path).convert('L')  # convert to grayscale
 
-    # Convertir en binaire : 0 = noir, 255 = blanc
+    # Binarisation : chat noir (0), fond blanc (255)
     bw = img.point(lambda x: 0 if x < 128 else 255, '1')
 
-    # Crée une image blanche, et colle le chat noir dessus
+    # Crée une image blanche, sur laquelle on colle le chat noir
     centered = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)
     img_w, img_h = bw.size
     pos_x = (SCREEN_WIDTH - img_w) // 2
@@ -39,10 +39,8 @@ def load_frame(animation_name, frame_index):
 
 # ----- EPAPER MODE -----
 def display_frame_epaper(epd, animation_name, frame_index):
-    white_bg = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)  # tout blanc
-    cat_frame = load_frame(animation_name, frame_index)  # chat noir centré
-    white_bg.paste(cat_frame, (0, 0))
-    epd.displayPartial(epd.getbuffer(white_bg))
+    frame = load_frame(animation_name, frame_index)
+    epd.displayPartial(epd.getbuffer(frame))
 
 # ----- DESKTOP MODE -----
 def display_frame_desktop(canvas, photo_img, animation_name, frame_index, root):
