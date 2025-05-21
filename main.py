@@ -23,11 +23,12 @@ ANIMATIONS = {
 
 def load_frame(animation_name, frame_index):
     path = f"animations/{animation_name}/frame_{frame_index}.png"
-    img = Image.open(path).convert('L')  # grayscale
+    img = Image.open(path).convert('L')
 
-    # Convert pixels sombres (chat) en noir, clairs (fond) en blanc
-    bw = img.point(lambda x: 255 if x > 128 else 0, '1')  # fond blanc, chat noir
+    # Chat en noir, tout le reste en blanc
+    bw = img.point(lambda x: 0 if x < 128 else 255, '1')  # fond blanc, chat noir
 
+    # Crée une image blanche (fond global)
     centered = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)  # fond blanc
     img_w, img_h = bw.size
     pos_x = (SCREEN_WIDTH - img_w) // 2
@@ -39,7 +40,8 @@ def load_frame(animation_name, frame_index):
 # ----- EPAPER MODE -----
 def display_frame_epaper(epd, animation_name, frame_index):
     frame = load_frame(animation_name, frame_index)
-    epd.display(epd.getbuffer(frame))
+    # epd.display(epd.getbuffer(frame))
+    epd.display_Partial(epd.getbuffer(frame))
 
 # ----- DESKTOP MODE -----
 def display_frame_desktop(canvas, photo_img, animation_name, frame_index, root):
@@ -105,6 +107,7 @@ def run_epaper():
     epd = epd2in13_V3.EPD()
     epd.init()
     epd.Clear(0xFF)
+    epd.init_partial()
     try:
         animation_sequence(lambda a, i: display_frame_epaper(epd, a, i))
     except KeyboardInterrupt:
