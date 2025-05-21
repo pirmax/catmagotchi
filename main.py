@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import argparse
 import random
@@ -113,6 +114,7 @@ def animation_sequence(display_fn):
 
 # ----- RUN EPAPER MODE -----
 def run_epaper():
+    sys.path.append("lib")
     from waveshare_epd import epd2in13_V3
     epd = epd2in13_V3.EPD()
     epd.init()
