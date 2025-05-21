@@ -107,7 +107,6 @@ def run_epaper():
     epd = epd2in13_V3.EPD()
     epd.init()
     epd.Clear(0xFF)
-    epd.init_partial()
     try:
         animation_sequence(lambda a, i: display_frame_epaper(epd, a, i))
     except KeyboardInterrupt:
