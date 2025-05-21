@@ -45,7 +45,7 @@ def load_frame(animation_name, frame_index):
     # Ligne blanche juste en dessous du chat
     draw = ImageDraw.Draw(centered)
     ground_y = min(lowest_y + 1, SCREEN_HEIGHT - 4)
-    draw.rectangle([(0, ground_y), (SCREEN_WIDTH, ground_y + LINE_HEIGHT)], fill=255)
+    # draw.rectangle([(0, ground_y), (SCREEN_WIDTH, ground_y + LINE_HEIGHT)], fill=255)
 
     return centered
 
