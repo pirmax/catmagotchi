@@ -23,12 +23,19 @@ ANIMATIONS = {
 
 def load_frame(animation_name, frame_index):
     path = f"animations/{animation_name}/frame_{frame_index}.png"
-    img = Image.open(path).convert('L')  # convert to grayscale
+    img = Image.open(path).convert('RGBA')  # garde le canal alpha temporairement
 
-    # Binarisation : chat noir (0), fond blanc (255)
-    bw = img.point(lambda x: 0 if x < 128 else 255, '1')
+    # Dessine sur un fond blanc (ignore l'alpha)
+    white_bg = Image.new('RGBA', img.size, (255, 255, 255, 255))
+    white_bg.paste(img, (0, 0))
 
-    # Crée une image blanche, sur laquelle on colle le chat noir
+    # Convertit en niveaux de gris (sans transparence)
+    grayscale = white_bg.convert('L')
+
+    # Binarise : chat noir, fond blanc
+    bw = grayscale.point(lambda x: 0 if x < 128 else 255, '1')
+
+    # Centre l’image sur fond blanc
     centered = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)
     img_w, img_h = bw.size
     pos_x = (SCREEN_WIDTH - img_w) // 2
