@@ -41,7 +41,7 @@ def load_frame(animation_name, frame_index):
 def display_frame_epaper(epd, animation_name, frame_index):
     frame = load_frame(animation_name, frame_index)
     # epd.display(epd.getbuffer(frame))
-    epd.display_Partial(epd.getbuffer(frame))
+    epd.displayPartial(epd.getbuffer(frame))
 
 # ----- DESKTOP MODE -----
 def display_frame_desktop(canvas, photo_img, animation_name, frame_index, root):
@@ -107,6 +107,7 @@ def run_epaper():
     epd = epd2in13_V3.EPD()
     epd.init()
     epd.Clear(0xFF)
+    epd.displayPartBaseImage(epd.getbuffer(Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)))
     try:
         animation_sequence(lambda a, i: display_frame_epaper(epd, a, i))
     except KeyboardInterrupt:
