@@ -4,8 +4,8 @@
 # * | Function    :   Electronic paper driver
 # * | Info        :
 # *----------------
-# * | This version:   V1.2
-# * | Date        :   2022-08-9
+# * | This version:   V1.1
+# * | Date        :   2021-10-30
 # # | Info        :   python demo
 # -----------------------------------------------------------------------------
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,6 +30,7 @@
 
 import logging
 import epdconfig
+import numpy as np
 
 # Display resolution
 EPD_WIDTH       = 122
@@ -39,20 +40,24 @@ logger = logging.getLogger(__name__)
 
 class EPD:
     def __init__(self):
-        self.reset_pin = epdconfig.RST_PIN
-        self.dc_pin = epdconfig.DC_PIN
-        self.busy_pin = epdconfig.BUSY_PIN
-        self.cs_pin = epdconfig.CS_PIN
+        self.reset_pin = epdconfig.EPD_RST_PIN
+        self.dc_pin = epdconfig.EPD_DC_PIN
+        self.busy_pin = epdconfig.EPD_BUSY_PIN
+        self.cs_pin = epdconfig.EPD_CS_PIN
         self.width = EPD_WIDTH
         self.height = EPD_HEIGHT
-        
+        epdconfig.address = 0x14
+    
+    FULL_UPDATE = 0
+    PART_UPDATE = 1
+    
     lut_partial_update= [
         0x0,0x40,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
         0x80,0x80,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
         0x40,0x40,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
         0x0,0x80,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
         0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
-        0x14,0x0,0x0,0x0,0x0,0x0,0x0,  
+        0x10,0x0,0x0,0x0,0x0,0x0,0x0,  
         0x1,0x0,0x0,0x0,0x0,0x0,0x0,
         0x1,0x0,0x0,0x0,0x0,0x0,0x0,
         0x0,0x0,0x0,0x0,0x0,0x0,0x0,
@@ -123,12 +128,11 @@ class EPD:
         epdconfig.digital_write(self.cs_pin, 0)
         epdconfig.spi_writebyte([data])
         epdconfig.digital_write(self.cs_pin, 1)
-
-    # send a lot of data   
+        
     def send_data2(self, data):
         epdconfig.digital_write(self.dc_pin, 1)
         epdconfig.digital_write(self.cs_pin, 0)
-        epdconfig.spi_writebyte2(data)
+        epdconfig.spi_writebyte(data)
         epdconfig.digital_write(self.cs_pin, 1)
     
     '''
@@ -157,7 +161,13 @@ class EPD:
     '''
     def TurnOnDisplayPart(self):
         self.send_command(0x22) # Display Update Control
-        self.send_data(0x0f)    # fast:0x0c, quality:0x0f, 0xcf
+        self.send_data(0x0c)    # fast:0x0c, quality:0x0f, 0xcf
+        self.send_command(0x20) # Activate Display Update Sequence
+        # self.ReadBusy()
+        
+    def TurnOnDisplayPart_Wait(self):
+        self.send_command(0x22) # Display Update Control
+        self.send_data(0x0c)    # fast:0x0c, quality:0x0f, 0xcf
         self.send_command(0x20) # Activate Display Update Sequence
         self.ReadBusy()
     
@@ -229,40 +239,72 @@ class EPD:
     function : Initialize the e-Paper register
     parameter:
     '''
-    def init(self):
+    def init(self, update):
         if (epdconfig.module_init() != 0):
             return -1
-        # EPD hardware init start
-        self.reset()
         
-        self.ReadBusy()
-        self.send_command(0x12)  #SWRESET
-        self.ReadBusy() 
+        if update == self.FULL_UPDATE:
+            # EPD hardware init start
+            self.reset()
+            
+            self.ReadBusy()
+            self.send_command(0x12)  #SWRESET
+            self.ReadBusy() 
 
-        self.send_command(0x01) #Driver output control      
-        self.send_data(0xf9)
-        self.send_data(0x00)
-        self.send_data(0x00)
-    
-        self.send_command(0x11) #data entry mode       
-        self.send_data(0x03)
+            self.send_command(0x01) #Driver output control      
+            self.send_data(0xf9)
+            self.send_data(0x00)
+            self.send_data(0x00)
+        
+            self.send_command(0x11) #data entry mode       
+            self.send_data(0x03)
 
-        self.SetWindow(0, 0, self.width-1, self.height-1)
-        self.SetCursor(0, 0)
-        
-        self.send_command(0x3c)
-        self.send_data(0x05)
+            self.SetWindow(0, 0, self.width-1, self.height-1)
+            self.SetCursor(0, 0)
+            
+            self.send_command(0x3c)
+            self.send_data(0x05)
 
-        self.send_command(0x21) #  Display update control
-        self.send_data(0x00)
-        self.send_data(0x80)
-    
-        self.send_command(0x18)
-        self.send_data(0x80)
+            self.send_command(0x21) #  Display update control
+            self.send_data(0x00)
+            self.send_data(0x80)
         
-        self.ReadBusy()
+            self.send_command(0x18)
+            self.send_data(0x80)
+            
+            self.ReadBusy()
+            
+            self.SetLut(self.lut_full_update)
         
-        self.SetLut(self.lut_full_update)
+        else:
+            epdconfig.digital_write(self.reset_pin, 0)
+            epdconfig.delay_ms(1)
+            epdconfig.digital_write(self.reset_pin, 1)  
+            
+            self.SetLut(self.lut_partial_update)
+            self.send_command(0x37)
+            self.send_data(0x00)
+            self.send_data(0x00)
+            self.send_data(0x00)
+            self.send_data(0x00)
+            self.send_data(0x00)
+            self.send_data(0x40)
+            self.send_data(0x00)
+            self.send_data(0x00)
+            self.send_data(0x00)  
+            self.send_data(0x00)
+
+            self.send_command(0x3C) #BorderWavefrom
+            self.send_data(0x80)
+
+            self.send_command(0x22) 
+            self.send_data(0xC0)
+            self.send_command(0x20)
+            self.ReadBusy()
+
+            self.SetWindow(0, 0, self.width - 1, self.height - 1)
+            self.SetCursor(0, 0)
+        
         return 0
 
     '''
@@ -274,10 +316,10 @@ class EPD:
         img = image
         imwidth, imheight = img.size
         if(imwidth == self.width and imheight == self.height):
-            img = img.convert('1')
+            img = img.rotate(180, expand=True).convert('1')
         elif(imwidth == self.height and imheight == self.width):
             # image has correct dimensions, but needs to be rotated
-            img = img.rotate(90, expand=True).convert('1')
+            img = img.rotate(270, expand=True).convert('1')
         else:
             logger.warning("Wrong image dimensions: must be " + str(self.width) + "x" + str(self.height))
             # return a blank buffer
@@ -298,9 +340,11 @@ class EPD:
             linewidth = int(self.width/8) + 1
 
         self.send_command(0x24)
-        for j in range(0, self.height):
-            for i in range(0, linewidth):
-                self.send_data(image[i + j * linewidth])   
+        # for j in range(0, self.height):
+            # for i in range(0, linewidth):
+                # self.send_data(image[i + j * linewidth])  
+
+        self.send_data2(image)
         self.TurnOnDisplay()
     
     '''
@@ -309,40 +353,31 @@ class EPD:
         image : Image data
     '''
     def displayPartial(self, image):
-        epdconfig.digital_write(self.reset_pin, 0)
-        epdconfig.delay_ms(1)
-        epdconfig.digital_write(self.reset_pin, 1)  
+        if self.width%8 == 0:
+            linewidth = int(self.width/8)
+        else:
+            linewidth = int(self.width/8) + 1
+
+        self.send_command(0x24) # WRITE_RAM
+        # for j in range(0, self.height):
+            # for i in range(0, linewidth):
+                # self.send_data(image[i + j * linewidth]) 
+        self.send_data2(image)                
+        self.TurnOnDisplayPart()
         
-        self.SetLut(self.lut_partial_update)
-        self.send_command(0x37)
-        self.send_data(0x00)
-        self.send_data(0x00)
-        self.send_data(0x00)
-        self.send_data(0x00)
-        self.send_data(0x00)
-        self.send_data(0x40)
-        self.send_data(0x00)
-        self.send_data(0x00)
-        self.send_data(0x00)  
-        self.send_data(0x00)
-
-        self.send_command(0x3C) #BorderWavefrom
-        self.send_data(0x80)
-
-        self.send_command(0x22) 
-        self.send_data(0xC0)
-        self.send_command(0x20)
-        self.ReadBusy()
-
-        self.SetWindow(0, 0, self.width - 1, self.height - 1)
-        self.SetCursor(0, 0)
+    def displayPartial_Wait(self, image):
+        if self.width%8 == 0:
+            linewidth = int(self.width/8)
+        else:
+            linewidth = int(self.width/8) + 1
         
         self.send_command(0x24) # WRITE_RAM
         # for j in range(0, self.height):
-        #     for i in range(0, linewidth):
-        #         self.send_data(image[i + j * linewidth])   
-        self.send_data2(image)  
-        self.TurnOnDisplayPart()
+            # for i in range(0, linewidth):
+                # self.send_data(image[i + j * linewidth])
+
+        self.send_data2(image)
+        self.TurnOnDisplayPart_Wait()
 
     '''
     function : Refresh a base image
@@ -350,18 +385,27 @@ class EPD:
         image : Image data
     '''
     def displayPartBaseImage(self, image):
+        if self.width%8 == 0:
+            linewidth = int(self.width/8)
+        else:
+            linewidth = int(self.width/8) + 1
+
         self.send_command(0x24)
-        self.send_data2(image)  
+        for j in range(0, self.height):
+            for i in range(0, linewidth):
+                self.send_data(image[i + j * linewidth])   
                 
         self.send_command(0x26)
-        self.send_data2(image)  
+        for j in range(0, self.height):
+            for i in range(0, linewidth):
+                self.send_data(image[i + j * linewidth])  
         self.TurnOnDisplay()
     
     '''
     function : Clear screen
     parameter:
     '''
-    def Clear(self, color=0xFF):
+    def Clear(self, color):
         if self.width%8 == 0:
             linewidth = int(self.width/8)
         else:
@@ -369,7 +413,10 @@ class EPD:
         # logger.debug(linewidth)
         
         self.send_command(0x24)
-        self.send_data2([color] * int(self.height * linewidth))  
+        for j in range(0, self.height):
+            for i in range(0, linewidth):
+                self.send_data(color)
+                
         self.TurnOnDisplay()
 
     '''
@@ -381,6 +428,8 @@ class EPD:
         self.send_data(0x01)
         
         epdconfig.delay_ms(2000)
+
+    def Dev_exit(self):
         epdconfig.module_exit()
 
 ### END OF FILE ###

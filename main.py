@@ -10,11 +10,9 @@ import tkinter as TK
 # Ensure the paths are correct based on your directory structure
 # This is a placeholder. Adjust the paths as necessary.
 BASE_DIR = os.path.dirname(__file__)
-sys.path.append(os.path.join(BASE_DIR, 'libs', 'waveshare_epd'))
-sys.path.append(os.path.join(BASE_DIR, 'libs', 'tp_lib'))
-
-import epd2in13_V3 as EPD
-import gt1151 as TPLIB
+sys.path.append(os.path.join(BASE_DIR, 'libs', 'waveshare'))
+from epd2in13_V3 import EPD
+from gt1151 import GT1151
 
 SCREEN_WIDTH = 250
 SCREEN_HEIGHT = 122
@@ -124,7 +122,7 @@ def run_epaper():
     epd.displayPartBaseImage(epd.getbuffer(Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)))
 
     # Initialisation tactile
-    touch = TPLIB.GT1151()
+    touch = GT1151.GT1151()
     touch.gt1151_init()
 
     try:
