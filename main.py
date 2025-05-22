@@ -122,8 +122,8 @@ def run_epaper():
     epd.displayPartBaseImage(epd.getbuffer(Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)))
 
     # Initialisation tactile
-    touch = GT1151.GT1151()
-    touch.gt1151_init()
+    touch = GT1151()
+    touch.GT_Init()
 
     try:
         animation_sequence(
