@@ -27,26 +27,36 @@ ANIMATIONS = {
 
 def load_frame(animation_name, frame_index):
     path = f"animations/{animation_name}/frame_{frame_index}.png"
-    img = Image.open(path).convert('RGB').convert('L')
 
+    # Load image as RGB, ignore transparency, convert to grayscale
+    img = Image.open(path).convert('RGB')
+    grayscale = img.convert('L')
+
+    # Custom thresholding to extract black & white version of the cat
     def threshold(x):
-        if x < 20: return 255
-        elif x > 190: return 255
-        else: return 0
+        # Background (almost black) becomes white (invisible)
+        # Bright details like eyes stay white
+        # Midtones (cat body) become black
+        if x < 20:
+            return 255  # Treat as white (background)
+        elif x > 190:
+            return 255  # Eyes and light highlights → white
+        else:
+            return 0    # Cat body and darker parts → black
 
-    bw = img.point(threshold, '1')
+    bw = grayscale.point(threshold, '1')  # Convert to 1-bit black & white image
+
+    # Center the image on a blank white canvas matching the screen size
     centered = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)
     pos_x = (SCREEN_WIDTH - bw.width) // 2
     pos_y = (SCREEN_HEIGHT - bw.height) // 2
     centered.paste(bw, (pos_x, pos_y))
 
-    print(f"Loaded {animation_name} frame {frame_index} → size={bw.size}, mode={bw.mode}")
-
     return centered
 
 def display_frame_epaper(epd, animation_name, frame_index):
     frame = load_frame(animation_name, frame_index)
-    epd.displayPartial(epd.getbuffer(frame))
+    epd.displayPartial(epd.getbuffer(frame))  # Partial refresh to avoid flicker
 
 def play_animation(animation_name, display_fn):
     config = ANIMATIONS[animation_name]
