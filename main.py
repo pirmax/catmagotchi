@@ -3,10 +3,12 @@ import sys
 import time
 import argparse
 import random
-from PIL import Image, ImageTk
+import PIL
 import tkinter as TK
 
-# Ajout des chemins des libs personnalisées
+# Add the paths to the libraries
+# Ensure the paths are correct based on your directory structure
+# This is a placeholder. Adjust the paths as necessary.
 BASE_DIR = os.path.dirname(__file__)
 sys.path.append(os.path.join(BASE_DIR, 'libs', 'waveshare_epd'))
 sys.path.append(os.path.join(BASE_DIR, 'libs', 'tp_lib'))
@@ -14,7 +16,6 @@ sys.path.append(os.path.join(BASE_DIR, 'libs', 'tp_lib'))
 import epd2in13_V3 as EPD
 import gt1151 as TPLIB
 
-# Constantes
 SCREEN_WIDTH = 250
 SCREEN_HEIGHT = 122
 FRAME_DELAY = 0.5
@@ -28,101 +29,109 @@ ANIMATIONS = {
     "walking_negative": {"frames": 8, "duration": 5},
 }
 
-# État global
-current_state = {"mode": "idle"}
+def load_frame(animation_name, frame_index):
+    path = f"animations/{animation_name}/frame_{frame_index}.png"
+    img = PIL.Image.open(path).convert('RGB').convert('L')
 
-def load_frame(animation, index):
-    path = f"animations/{animation}/frame_{index}.png"
-    img = Image.open(path).convert('RGB').convert('L')
+    def threshold(x):
+        if x < 20: return 255
+        elif x > 190: return 255
+        else: return 0
 
-    def threshold(x): return 255 if x < 20 or x > 190 else 0
     bw = img.point(threshold, '1')
-
-    centered = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)
-    x = (SCREEN_WIDTH - bw.width) // 2
-    y = (SCREEN_HEIGHT - bw.height) // 2
-    centered.paste(bw, (x, y))
+    centered = PIL.Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)
+    pos_x = (SCREEN_WIDTH - bw.width) // 2
+    pos_y = (SCREEN_HEIGHT - bw.height) // 2
+    centered.paste(bw, (pos_x, pos_y))
     return centered
 
-def display_frame_epaper(epd, animation, index):
-    frame = load_frame(animation, index)
+def display_frame_epaper(epd, animation_name, frame_index):
+    frame = load_frame(animation_name, frame_index)
     epd.displayPartial(epd.getbuffer(frame))
 
-def play_animation(epd, animation):
-    config = ANIMATIONS[animation]
-    frames = config["frames"]
-    duration = config["duration"]
+def display_frame_desktop(canvas, photo_img, animation_name, frame_index, root):
+    frame = load_frame(animation_name, frame_index)
+    display = frame.convert('L')
+    tk_img = PIL.ImageTk.PhotoImage(display.resize((SCREEN_WIDTH * 2, SCREEN_HEIGHT * 2)))
+    photo_img[0] = tk_img
+    canvas.create_image(0, 0, anchor=TK.NW, image=tk_img)
+    root.update()
 
-    if duration is None:
+def play_animation(animation_name, display_fn):
+    config = ANIMATIONS[animation_name]
+    frames = config["frames"]
+    total = config["duration"]
+
+    if total is None:
         for i in range(frames):
-            display_frame_epaper(epd, animation, i)
+            display_fn(animation_name, i)
             time.sleep(FRAME_DELAY)
     else:
-        loops = int(duration / (FRAME_DELAY * frames))
+        loops = int(total / (FRAME_DELAY * frames))
         for _ in range(loops):
             for i in range(frames):
-                display_frame_epaper(epd, animation, i)
+                display_fn(animation_name, i)
                 time.sleep(FRAME_DELAY)
 
-def animation_sequence(epd):
-    last = "idle"
+def detect_double_tap(gt1151, last_taps, threshold_ms=500):
+    if gt1151.digital_read(17) == 0:
+        now = int(time.time() * 1000)
+        last_taps.append(now)
+        if len(last_taps) > 2:
+            last_taps.pop(0)
+        if len(last_taps) == 2 and (last_taps[1] - last_taps[0]) < threshold_ms:
+            return True
+    return False
+
+def animation_sequence(display_fn, touch_check_fn=None):
+    last_state = "idle"
+    last_taps = []
+
     while True:
-        if current_state["mode"] == "wake_up":
-            play_animation(epd, "sleep_to_idle")
-            current_state["mode"] = "idle"
-            last = "idle"
+        if touch_check_fn and touch_check_fn():
+            if last_state == "sleep":
+                play_animation("sleep_to_idle", display_fn)
+                last_state = "idle"
+                continue
+
+        if last_state == "sleep":
+            play_animation("sleep", display_fn)
             continue
 
-        if last == "sleep":
-            play_animation(epd, "sleep")
-            last = "sleep"
-        elif last in ["walking_positive", "walking_negative"]:
-            play_animation(epd, "idle")
-            last = "idle"
+        if last_state in ["walking_positive", "walking_negative"]:
+            play_animation("idle", display_fn)
+            last_state = "idle"
+            continue
+
+        choice = random.choice(["walk_pos", "walk_neg", "sleep", "idle"])
+        if choice == "walk_pos":
+            play_animation("walking_positive", display_fn)
+            last_state = "walking_positive"
+        elif choice == "walk_neg":
+            play_animation("walking_negative", display_fn)
+            last_state = "walking_negative"
+        elif choice == "sleep":
+            play_animation("idle_to_sleep", display_fn)
+            last_state = "sleep"
         else:
-            choice = random.choice(["walk_pos", "walk_neg", "sleep", "idle"])
-            if choice == "walk_pos":
-                play_animation(epd, "walking_positive")
-                last = "walking_positive"
-            elif choice == "walk_neg":
-                play_animation(epd, "walking_negative")
-                last = "walking_negative"
-            elif choice == "sleep":
-                play_animation(epd, "idle_to_sleep")
-                current_state["mode"] = "sleep"
-                last = "sleep"
-            else:
-                play_animation(epd, "idle")
-                last = "idle"
+            play_animation("idle", display_fn)
+            last_state = "idle"
 
 def run_epaper():
     epd = EPD.EPD()
     epd.init()
     epd.Clear(0xFF)
-    epd.displayPartBaseImage(epd.getbuffer(Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)))
+    epd.displayPartBaseImage(epd.getbuffer(PIL.Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)))
 
-    last_tap = 0
-
-    def handle_touch():
-        nonlocal last_tap
-        while True:
-            if TPLIB.digital_read(TPLIB.INT) == 0:
-                time.sleep(0.05)
-                x, y = TPLIB.Touch_GetPoint()
-                now = time.time()
-                if now - last_tap < 0.5 and current_state["mode"] == "sleep":
-                    current_state["mode"] = "wake_up"
-                last_tap = now
-                while TPLIB.digital_read(TPLIB.INT) == 0:
-                    time.sleep(0.05)
-            time.sleep(0.1)
-
-    import threading
-    TPLIB.Touch_Init()
-    threading.Thread(target=handle_touch, daemon=True).start()
+    # Initialisation tactile
+    touch = TPLIB.GT1151()
+    touch.gt1151_init()
 
     try:
-        animation_sequence(epd)
+        animation_sequence(
+            lambda a, i: display_frame_epaper(epd, a, i),
+            touch_check_fn=lambda: detect_double_tap(touch, [])
+        )
     except KeyboardInterrupt:
         epd.init()
         epd.Clear(0xFF)
@@ -131,27 +140,18 @@ def run_epaper():
 def run_desktop():
     root = TK.Tk()
     root.title("Catmagotchi Preview")
-    canvas = TK.Canvas(root, width=SCREEN_WIDTH*2, height=SCREEN_HEIGHT*2)
+    canvas = TK.Canvas(root, width=SCREEN_WIDTH * 2, height=SCREEN_HEIGHT * 2, bg='white')
     canvas.pack()
     photo_img = [None]
 
-    def display(animation, index):
-        frame = load_frame(animation, index)
-        display = frame.convert('L')
-        tk_img = ImageTk.PhotoImage(display.resize((SCREEN_WIDTH*2, SCREEN_HEIGHT*2)))
-        photo_img[0] = tk_img
-        canvas.create_image(0, 0, anchor=TK.NW, image=tk_img)
-        root.update()
-
     try:
-        while True:
-            animation_sequence(type("MockEPD", (), {"displayPartial": lambda _, img: display(_, img)})())
+        animation_sequence(lambda a, i: display_frame_desktop(canvas, photo_img, a, i, root))
     except KeyboardInterrupt:
         root.destroy()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--preview", action="store_true")
+    parser.add_argument("--preview", action="store_true", help="Run desktop preview mode")
     args = parser.parse_args()
 
     if args.preview:
