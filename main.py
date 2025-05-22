@@ -3,7 +3,7 @@ import sys
 import time
 import argparse
 import random
-import PIL
+from PIL import Image, ImageTk
 import tkinter as TK
 
 # Add the paths to the libraries
@@ -31,7 +31,7 @@ ANIMATIONS = {
 
 def load_frame(animation_name, frame_index):
     path = f"animations/{animation_name}/frame_{frame_index}.png"
-    img = PIL.Image.open(path).convert('RGB').convert('L')
+    img = Image.open(path).convert('RGB').convert('L')
 
     def threshold(x):
         if x < 20: return 255
@@ -39,7 +39,7 @@ def load_frame(animation_name, frame_index):
         else: return 0
 
     bw = img.point(threshold, '1')
-    centered = PIL.Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)
+    centered = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)
     pos_x = (SCREEN_WIDTH - bw.width) // 2
     pos_y = (SCREEN_HEIGHT - bw.height) // 2
     centered.paste(bw, (pos_x, pos_y))
@@ -52,7 +52,7 @@ def display_frame_epaper(epd, animation_name, frame_index):
 def display_frame_desktop(canvas, photo_img, animation_name, frame_index, root):
     frame = load_frame(animation_name, frame_index)
     display = frame.convert('L')
-    tk_img = PIL.ImageTk.PhotoImage(display.resize((SCREEN_WIDTH * 2, SCREEN_HEIGHT * 2)))
+    tk_img = ImageTk.PhotoImage(display.resize((SCREEN_WIDTH * 2, SCREEN_HEIGHT * 2)))
     photo_img[0] = tk_img
     canvas.create_image(0, 0, anchor=TK.NW, image=tk_img)
     root.update()
@@ -121,7 +121,7 @@ def run_epaper():
     epd = EPD.EPD()
     epd.init()
     epd.Clear(0xFF)
-    epd.displayPartBaseImage(epd.getbuffer(PIL.Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)))
+    epd.displayPartBaseImage(epd.getbuffer(Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)))
 
     # Initialisation tactile
     touch = TPLIB.GT1151()
