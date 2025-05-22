@@ -27,18 +27,22 @@ ANIMATIONS = {
 
 def load_frame(animation_name, frame_index):
     path = f"animations/{animation_name}/frame_{frame_index}.png"
-    img = Image.open(path).convert('RGB')  # convert to RGB safely
-    img = img.resize((SCREEN_WIDTH, SCREEN_HEIGHT), Image.LANCZOS)  # ensure full size
-    grayscale = img.convert('L')
+    img = Image.open(path).convert('RGB').convert('L')
 
-    # Simplified threshold: anything darker than 200 is black
     def threshold(x):
-        return 0 if x < 200 else 255
+        if x < 20: return 255
+        elif x > 190: return 255
+        else: return 0
 
-    bw = grayscale.point(threshold, '1')
+    bw = img.point(threshold, '1')
+    centered = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)
+    pos_x = (SCREEN_WIDTH - bw.width) // 2
+    pos_y = (SCREEN_HEIGHT - bw.height) // 2
+    centered.paste(bw, (pos_x, pos_y))
 
     print(f"Loaded {animation_name} frame {frame_index} → size={bw.size}, mode={bw.mode}")
-    return bw
+
+    return centered
 
 def display_frame_epaper(epd, animation_name, frame_index):
     frame = load_frame(animation_name, frame_index)
