@@ -4,7 +4,7 @@ import time
 import argparse
 import random
 from PIL import Image, ImageTk
-import tkinter as tk
+import tkinter as TK
 
 # Ajout des chemins des libs personnalisées
 BASE_DIR = os.path.dirname(__file__)
@@ -96,7 +96,7 @@ def animation_sequence(epd):
                 last = "idle"
 
 def run_epaper():
-    epd = EPD()
+    epd = EPD.EPD()
     epd.init()
     epd.Clear(0xFF)
     epd.displayPartBaseImage(epd.getbuffer(Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)))
@@ -129,9 +129,9 @@ def run_epaper():
         epd.sleep()
 
 def run_desktop():
-    root = tk.Tk()
+    root = TK.Tk()
     root.title("Catmagotchi Preview")
-    canvas = tk.Canvas(root, width=SCREEN_WIDTH*2, height=SCREEN_HEIGHT*2)
+    canvas = TK.Canvas(root, width=SCREEN_WIDTH*2, height=SCREEN_HEIGHT*2)
     canvas.pack()
     photo_img = [None]
 
@@ -140,7 +140,7 @@ def run_desktop():
         display = frame.convert('L')
         tk_img = ImageTk.PhotoImage(display.resize((SCREEN_WIDTH*2, SCREEN_HEIGHT*2)))
         photo_img[0] = tk_img
-        canvas.create_image(0, 0, anchor=tk.NW, image=tk_img)
+        canvas.create_image(0, 0, anchor=TK.NW, image=tk_img)
         root.update()
 
     try:
