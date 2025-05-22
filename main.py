@@ -27,27 +27,20 @@ ANIMATIONS = {
 
 def load_frame(animation_name, frame_index):
     path = f"animations/{animation_name}/frame_{frame_index}.png"
+    img = Image.open(path).convert('RGB')  # convert to RGB safely
+    img = img.resize((SCREEN_WIDTH, SCREEN_HEIGHT), Image.LANCZOS)  # ensure full size
+    grayscale = img.convert('L')
 
-    # Convertit proprement depuis palette, RGBA, etc.
-    img = Image.open(path).convert("RGB")
-
-    # Redimensionne l'image si nécessaire
-    if img.size != (SCREEN_WIDTH, SCREEN_HEIGHT):
-        img = img.resize((SCREEN_WIDTH, SCREEN_HEIGHT), Image.LANCZOS)
-
-    # Convertit en niveaux de gris
-    grayscale = img.convert("L")
-
-    # Applique un seuillage personnalisé
+    # Simplified threshold: anything darker than 200 is black
     def threshold(x):
         return 0 if x < 200 else 255
 
-    bw = grayscale.point(threshold, "1")
+    bw = grayscale.point(threshold, '1')
 
+    print(f"Loaded {animation_name} frame {frame_index} → size={bw.size}, mode={bw.mode}")
     return bw
 
 def display_frame_epaper(epd, animation_name, frame_index):
-    print(f"Displaying {animation_name} frame {frame_index}")
     frame = load_frame(animation_name, frame_index)
     epd.displayPartial(epd.getbuffer(frame))
 
@@ -115,6 +108,11 @@ def run_epaper():
     epd.init(1)
     epd.Clear(0xFF)
     epd.displayPartBaseImage(epd.getbuffer(Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)))
+
+    # Test de l'animation
+    frame = load_frame("idle", 0)
+    epd.displayPartial(epd.getbuffer(frame))
+    time.sleep(2)
 
     # Initialisation tactile
     touch = GT1151()
