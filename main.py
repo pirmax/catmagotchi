@@ -11,8 +11,8 @@ BASE_DIR = os.path.dirname(__file__)
 sys.path.append(os.path.join(BASE_DIR, 'libs', 'waveshare_epd'))
 sys.path.append(os.path.join(BASE_DIR, 'libs', 'tp_lib'))
 
-from epd2in13_V3 import EPD
-from gt1151 import Touch_Init, Touch_GetPoint, digital_read, INT as INT_PIN
+import epd2in13_V3 as EPD
+import gt1151 as TPLIB
 
 # Constantes
 SCREEN_WIDTH = 250
@@ -106,19 +106,19 @@ def run_epaper():
     def handle_touch():
         nonlocal last_tap
         while True:
-            if digital_read(INT_PIN) == 0:
+            if TPLIB.digital_read(TPLIB.INT) == 0:
                 time.sleep(0.05)
-                x, y = Touch_GetPoint()
+                x, y = TPLIB.Touch_GetPoint()
                 now = time.time()
                 if now - last_tap < 0.5 and current_state["mode"] == "sleep":
                     current_state["mode"] = "wake_up"
                 last_tap = now
-                while digital_read(INT_PIN) == 0:
+                while TPLIB.digital_read(TPLIB.INT) == 0:
                     time.sleep(0.05)
             time.sleep(0.1)
 
     import threading
-    Touch_Init()
+    TPLIB.Touch_Init()
     threading.Thread(target=handle_touch, daemon=True).start()
 
     try:
