@@ -1,10 +1,8 @@
 import os
 import sys
 import time
-import argparse
 import random
-from PIL import Image, ImageTk
-import tkinter as TK
+from PIL import Image
 
 # Add the paths to the libraries
 # Ensure the paths are correct based on your directory structure
@@ -47,14 +45,6 @@ def display_frame_epaper(epd, animation_name, frame_index):
     frame = load_frame(animation_name, frame_index)
     epd.displayPartial(epd.getbuffer(frame))
 
-def display_frame_desktop(canvas, photo_img, animation_name, frame_index, root):
-    frame = load_frame(animation_name, frame_index)
-    display = frame.convert('L')
-    tk_img = ImageTk.PhotoImage(display.resize((SCREEN_WIDTH * 2, SCREEN_HEIGHT * 2)))
-    photo_img[0] = tk_img
-    canvas.create_image(0, 0, anchor=TK.NW, image=tk_img)
-    root.update()
-
 def play_animation(animation_name, display_fn):
     config = ANIMATIONS[animation_name]
     frames = config["frames"]
@@ -83,7 +73,6 @@ def detect_double_tap(gt1151, last_taps, threshold_ms=500):
 
 def animation_sequence(display_fn, touch_check_fn=None):
     last_state = "idle"
-    last_taps = []
 
     while True:
         if touch_check_fn and touch_check_fn():
@@ -126,33 +115,16 @@ def run_epaper():
     touch.GT_Init()
 
     try:
+        last_taps = []
+
         animation_sequence(
             lambda a, i: display_frame_epaper(epd, a, i),
-            touch_check_fn=lambda: detect_double_tap(touch, [])
+            touch_check_fn=lambda: detect_double_tap(touch, last_taps)
         )
     except KeyboardInterrupt:
         epd.init()
         epd.Clear(0xFF)
         epd.sleep()
 
-def run_desktop():
-    root = TK.Tk()
-    root.title("Catmagotchi Preview")
-    canvas = TK.Canvas(root, width=SCREEN_WIDTH * 2, height=SCREEN_HEIGHT * 2, bg='white')
-    canvas.pack()
-    photo_img = [None]
-
-    try:
-        animation_sequence(lambda a, i: display_frame_desktop(canvas, photo_img, a, i, root))
-    except KeyboardInterrupt:
-        root.destroy()
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--preview", action="store_true", help="Run desktop preview mode")
-    args = parser.parse_args()
-
-    if args.preview:
-        run_desktop()
-    else:
-        run_epaper()
+    run_epaper()
