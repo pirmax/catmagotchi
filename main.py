@@ -46,7 +46,7 @@ def load_frame(animation_name, frame_index):
 
 def display_frame_epaper(epd, animation_name, frame_index):
     frame = load_frame(animation_name, frame_index)
-    epd.display(epd.getbuffer(frame))
+    epd.displayPartial(epd.getbuffer(frame))
 
 def play_animation(animation_name, display_fn):
     config = ANIMATIONS[animation_name]
@@ -112,11 +112,6 @@ def run_epaper():
     epd.init(0)
     epd.Clear(0xFF)
     epd.displayPartBaseImage(epd.getbuffer(Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)))
-
-    # Test de l'animation
-    frame = load_frame("idle", 0)
-    epd.displayPartial(epd.getbuffer(frame))
-    time.sleep(2)
 
     # Initialisation tactile
     touch = GT1151()
