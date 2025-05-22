@@ -117,7 +117,9 @@ def animation_sequence(display_fn):
 
 # --- START EPAPER MODE ---
 def run_epaper():
-    sys.path.append("lib")  # Add driver path
+    import os
+    import sys
+    sys.path.append(os.path.join(os.path.dirname(__file__), 'lib'))
     from waveshare_epd import epd2in13_V3
     epd = epd2in13_V3.EPD()
     epd.init()
