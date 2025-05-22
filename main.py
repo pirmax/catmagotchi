@@ -105,7 +105,7 @@ def animation_sequence(display_fn, touch_check_fn=None):
 
 def run_epaper():
     epd = EPD()
-    epd.init(1)
+    epd.init(0)
     epd.Clear(0xFF)
     epd.displayPartBaseImage(epd.getbuffer(Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)))
 
