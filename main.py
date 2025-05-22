@@ -42,6 +42,7 @@ def load_frame(animation_name, frame_index):
     return centered
 
 def display_frame_epaper(epd, animation_name, frame_index):
+    print(f"Displaying {animation_name} frame {frame_index}")
     frame = load_frame(animation_name, frame_index)
     epd.displayPartial(epd.getbuffer(frame))
 
@@ -108,7 +109,9 @@ def run_epaper():
     epd = EPD()
     epd.init(1)
     epd.Clear(0xFF)
-    epd.displayPartBaseImage(epd.getbuffer(Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)))
+    frame = load_frame("idle", 0)
+    epd.displayPartBaseImage(epd.getbuffer(frame))
+    time.sleep(5)
 
     # Initialisation tactile
     touch = GT1151()
@@ -122,7 +125,7 @@ def run_epaper():
             touch_check_fn=lambda: detect_double_tap(touch, last_taps)
         )
     except KeyboardInterrupt:
-        epd.init()
+        epd.init(1)
         epd.Clear(0xFF)
         epd.sleep()
 
