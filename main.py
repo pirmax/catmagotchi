@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import argparse
@@ -5,13 +6,19 @@ import random
 from PIL import Image, ImageTk
 import tkinter as tk
 
-# Screen resolution for the 2.13" Waveshare e-paper display
+# Ajout des chemins des libs personnalisées
+BASE_DIR = os.path.dirname(__file__)
+sys.path.append(os.path.join(BASE_DIR, 'libs', 'waveshare_epd'))
+sys.path.append(os.path.join(BASE_DIR, 'libs', 'tp_lib'))
+
+from epd2in13_V3 import EPD
+from gt1151 import Touch_Init, Touch_GetPoint, digital_read, INT as INT_PIN
+
+# Constantes
 SCREEN_WIDTH = 250
 SCREEN_HEIGHT = 122
-FRAME_DELAY = 0.5  # Seconds between frames
-LINE_HEIGHT = 1
+FRAME_DELAY = 0.5
 
-# Animation configuration: number of frames and total duration (in seconds)
 ANIMATIONS = {
     "idle": {"frames": 5, "duration": 10},
     "idle_to_sleep": {"frames": 8, "duration": None},
@@ -21,135 +28,130 @@ ANIMATIONS = {
     "walking_negative": {"frames": 8, "duration": 5},
 }
 
-# --- LOAD AND PREPARE FRAME ---
-def load_frame(animation_name, frame_index):
-    path = f"animations/{animation_name}/frame_{frame_index}.png"
+# État global
+current_state = {"mode": "idle"}
 
-    # Load image as RGB, ignore transparency, convert to grayscale
-    img = Image.open(path).convert('RGB')
-    grayscale = img.convert('L')
+def load_frame(animation, index):
+    path = f"animations/{animation}/frame_{index}.png"
+    img = Image.open(path).convert('RGB').convert('L')
 
-    # Custom thresholding to extract black & white version of the cat
-    def threshold(x):
-        # Background (almost black) becomes white (invisible)
-        # Bright details like eyes stay white
-        # Midtones (cat body) become black
-        if x < 20:
-            return 255  # Treat as white (background)
-        elif x > 190:
-            return 255  # Eyes and light highlights → white
-        else:
-            return 0    # Cat body and darker parts → black
+    def threshold(x): return 255 if x < 20 or x > 190 else 0
+    bw = img.point(threshold, '1')
 
-    bw = grayscale.point(threshold, '1')  # Convert to 1-bit black & white image
-
-    # Center the image on a blank white canvas matching the screen size
     centered = Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)
-    pos_x = (SCREEN_WIDTH - bw.width) // 2
-    pos_y = (SCREEN_HEIGHT - bw.height) // 2
-    centered.paste(bw, (pos_x, pos_y))
-
+    x = (SCREEN_WIDTH - bw.width) // 2
+    y = (SCREEN_HEIGHT - bw.height) // 2
+    centered.paste(bw, (x, y))
     return centered
 
-# --- DISPLAY FRAME ON EPAPER ---
-def display_frame_epaper(epd, animation_name, frame_index):
-    frame = load_frame(animation_name, frame_index)
-    epd.displayPartial(epd.getbuffer(frame))  # Partial refresh to avoid flicker
+def display_frame_epaper(epd, animation, index):
+    frame = load_frame(animation, index)
+    epd.displayPartial(epd.getbuffer(frame))
 
-# --- DISPLAY FRAME ON DESKTOP PREVIEW ---
-def display_frame_desktop(canvas, photo_img, animation_name, frame_index, root):
-    frame = load_frame(animation_name, frame_index)
-    display = frame.convert('L')  # Convert back to grayscale for display
-    tk_img = ImageTk.PhotoImage(display.resize((SCREEN_WIDTH * 2, SCREEN_HEIGHT * 2)))
-    photo_img[0] = tk_img
-    canvas.create_image(0, 0, anchor=tk.NW, image=tk_img)
-    root.update()
+def play_animation(epd, animation):
+    config = ANIMATIONS[animation]
+    frames = config["frames"]
+    duration = config["duration"]
 
-# --- PLAY ONE ANIMATION CYCLE ---
-def play_animation(animation_name, display_fn):
-    config = ANIMATIONS[animation_name]
-    frame_count = config["frames"]
-    total_duration = config["duration"]
-
-    if total_duration is None:
-        # Play once, frame by frame
-        for i in range(frame_count):
-            display_fn(animation_name, i)
+    if duration is None:
+        for i in range(frames):
+            display_frame_epaper(epd, animation, i)
             time.sleep(FRAME_DELAY)
     else:
-        # Loop the animation enough to fill total_duration
-        loops = int(total_duration / (FRAME_DELAY * frame_count))
+        loops = int(duration / (FRAME_DELAY * frames))
         for _ in range(loops):
-            for i in range(frame_count):
-                display_fn(animation_name, i)
+            for i in range(frames):
+                display_frame_epaper(epd, animation, i)
                 time.sleep(FRAME_DELAY)
 
-# --- CHOOSE RANDOMLY WHAT THE CAT DOES NEXT ---
-def animation_sequence(display_fn):
-    last_state = "idle"
-
+def animation_sequence(epd):
+    last = "idle"
     while True:
-        if last_state == "sleep":
-            play_animation("sleep_to_idle", display_fn)
-            last_state = "idle"
+        if current_state["mode"] == "wake_up":
+            play_animation(epd, "sleep_to_idle")
+            current_state["mode"] = "idle"
+            last = "idle"
             continue
 
-        if last_state in ["walking_positive", "walking_negative"]:
-            play_animation("idle", display_fn)
-            last_state = "idle"
-            continue
-
-        # Randomly pick the next action
-        choice = random.choice(["walk_pos", "walk_neg", "sleep", "idle"])
-        if choice == "walk_pos":
-            play_animation("walking_positive", display_fn)
-            last_state = "walking_positive"
-        elif choice == "walk_neg":
-            play_animation("walking_negative", display_fn)
-            last_state = "walking_negative"
-        elif choice == "sleep":
-            play_animation("idle_to_sleep", display_fn)
-            play_animation("sleep", display_fn)
-            last_state = "sleep"
+        if last == "sleep":
+            play_animation(epd, "sleep")
+            last = "sleep"
+        elif last in ["walking_positive", "walking_negative"]:
+            play_animation(epd, "idle")
+            last = "idle"
         else:
-            play_animation("idle", display_fn)
-            last_state = "idle"
+            choice = random.choice(["walk_pos", "walk_neg", "sleep", "idle"])
+            if choice == "walk_pos":
+                play_animation(epd, "walking_positive")
+                last = "walking_positive"
+            elif choice == "walk_neg":
+                play_animation(epd, "walking_negative")
+                last = "walking_negative"
+            elif choice == "sleep":
+                play_animation(epd, "idle_to_sleep")
+                current_state["mode"] = "sleep"
+                last = "sleep"
+            else:
+                play_animation(epd, "idle")
+                last = "idle"
 
-# --- START EPAPER MODE ---
 def run_epaper():
-    import os
-    import sys
-    sys.path.append(os.path.join(os.path.dirname(__file__), 'lib'))
-    from waveshare_epd import epd2in13_V3
-    epd = epd2in13_V3.EPD()
+    epd = EPD()
     epd.init()
-    epd.Clear(0xFF)  # Full white screen clear
-    # Set a blank white base image to prepare for partial updates
+    epd.Clear(0xFF)
     epd.displayPartBaseImage(epd.getbuffer(Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)))
+
+    last_tap = 0
+
+    def handle_touch():
+        nonlocal last_tap
+        while True:
+            if digital_read(INT_PIN) == 0:
+                time.sleep(0.05)
+                x, y = Touch_GetPoint()
+                now = time.time()
+                if now - last_tap < 0.5 and current_state["mode"] == "sleep":
+                    current_state["mode"] = "wake_up"
+                last_tap = now
+                while digital_read(INT_PIN) == 0:
+                    time.sleep(0.05)
+            time.sleep(0.1)
+
+    import threading
+    Touch_Init()
+    threading.Thread(target=handle_touch, daemon=True).start()
+
     try:
-        animation_sequence(lambda a, i: display_frame_epaper(epd, a, i))
+        animation_sequence(epd)
     except KeyboardInterrupt:
         epd.init()
         epd.Clear(0xFF)
         epd.sleep()
 
-# --- START DESKTOP PREVIEW MODE (FOR DEV ON MAC/LINUX) ---
 def run_desktop():
     root = tk.Tk()
-    root.title("Catmagotchi Desktop Preview")
-    canvas = tk.Canvas(root, width=SCREEN_WIDTH*2, height=SCREEN_HEIGHT*2, bg='white')
+    root.title("Catmagotchi Preview")
+    canvas = tk.Canvas(root, width=SCREEN_WIDTH*2, height=SCREEN_HEIGHT*2)
     canvas.pack()
-    photo_img = [None]  # Used to keep reference to the image
+    photo_img = [None]
+
+    def display(animation, index):
+        frame = load_frame(animation, index)
+        display = frame.convert('L')
+        tk_img = ImageTk.PhotoImage(display.resize((SCREEN_WIDTH*2, SCREEN_HEIGHT*2)))
+        photo_img[0] = tk_img
+        canvas.create_image(0, 0, anchor=tk.NW, image=tk_img)
+        root.update()
 
     try:
-        animation_sequence(lambda a, i: display_frame_desktop(canvas, photo_img, a, i, root))
+        while True:
+            animation_sequence(type("MockEPD", (), {"displayPartial": lambda _, img: display(_, img)})())
     except KeyboardInterrupt:
         root.destroy()
 
-# --- ENTRY POINT ---
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--preview", action="store_true", help="Run desktop preview mode instead of e-paper mode")
+    parser.add_argument("--preview", action="store_true")
     args = parser.parse_args()
 
     if args.preview:
