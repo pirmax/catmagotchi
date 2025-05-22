@@ -116,7 +116,7 @@ def animation_sequence(display_fn, touch_check_fn=None):
             last_state = "idle"
 
 def run_epaper():
-    epd = EPD.EPD()
+    epd = EPD()
     epd.init()
     epd.Clear(0xFF)
     epd.displayPartBaseImage(epd.getbuffer(Image.new('1', (SCREEN_WIDTH, SCREEN_HEIGHT), 255)))
