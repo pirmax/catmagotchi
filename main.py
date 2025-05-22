@@ -46,7 +46,7 @@ def load_frame(animation_name, frame_index):
 
 def display_frame_epaper(epd, animation_name, frame_index):
     frame = load_frame(animation_name, frame_index)
-    epd.displayPartial(epd.getbuffer(frame))
+    epd.display(epd.getbuffer(frame))
 
 def play_animation(animation_name, display_fn):
     config = ANIMATIONS[animation_name]
