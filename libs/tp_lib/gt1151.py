@@ -1,5 +1,5 @@
 import logging
-from . import epdconfig as config
+import epdconfig as config
 
 class GT_Development:
     def __init__(self):
